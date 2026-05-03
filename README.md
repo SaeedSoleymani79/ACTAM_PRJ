@@ -29,12 +29,12 @@ The entry point of the application where users can toggle between different synt
 ### **Main Performance Dashboard**
 The primary workspace featuring the melodic keybed, transport controls, and the Master FX rack.
 
-![Main UI](keyboard.png)
+![Main UI](assets/keyboard.png)
 
 ### **Virtual Percussion Layout**
 A specialized UI designed for trigger-based rhythmic performance using a spatial drum kit map.
 
-![Drums UI](drums.png)
+![Drums UI](assets/drums.png)
 
 ---
 
