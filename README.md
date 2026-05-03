@@ -34,7 +34,7 @@ The primary workspace featuring the melodic keybed, transport controls, and the 
 ### **Virtual Percussion Layout**
 A specialized UI designed for trigger-based rhythmic performance using a spatial drum kit map.
 
-![Drums UI](drum.png)
+![Drums UI](drums.png)
 
 ---
 
