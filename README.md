@@ -23,15 +23,18 @@
 
 ### **Instrument Selection Menu**
 The entry point of the application where users can toggle between different synthesis models.
+
 ![Menu Interface](assets/menue.png)
 
 ### **Main Performance Dashboard**
 The primary workspace featuring the melodic keybed, transport controls, and the Master FX rack.
-![Main UI](image_e2d4f7.png)
+
+![Main UI](keyboard.png)
 
 ### **Virtual Percussion Layout**
 A specialized UI designed for trigger-based rhythmic performance using a spatial drum kit map.
-![Drums UI](image_e2d4d7.jpg)
+
+![Drums UI](drum.jpg)
 
 ---
 
