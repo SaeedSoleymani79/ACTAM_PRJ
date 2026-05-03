@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ACTAM PRO | Audio Suite</title>
+  <!-- Link to your new CSS file -->
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="locked">
+
+  <div id="splash" class="screen">
+    <canvas id="particles"></canvas>
+    <div class="splash-logo"><span>A</span><span>C</span><span>T</span><span>A</span><span>M</span></div>
+    <div class="splash-sub">PRO AUDIO SUITE</div>
+  </div>
+
+  <div id="menu" class="screen out">
+    <p class="menu-title">Select Instrument</p>
+    <div class="cards">
+      <div class="card" onclick="enterInstrument('piano')">
+        <div class="card-icon">🎹</div><div class="card-name">GRAND PIANO</div><div class="card-sub">Additive Synth</div>
+      </div>
+      <div class="card" onclick="enterInstrument('strings')">
+        <div class="card-icon">🎻</div><div class="card-name">STRINGS</div><div class="card-sub">Super Saw</div>
+      </div>
+      <div class="card" onclick="enterInstrument('guitar')">
+        <div class="card-icon">🎸</div><div class="card-name">GUITAR</div><div class="card-sub">Physical Model</div>
+      </div>
+      <div class="card" onclick="enterInstrument('drums')" style="border-color: #ffaa00;">
+        <div class="card-icon">🥁</div><div class="card-name">DRUM KIT</div><div class="card-sub">Rhythm Machine</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="synth-frame">
+    <div class="main-panel">
+      
+      <div class="panel-top">
+        <div class="logo">ACTAM <span>PRO</span> <span class="ws-dot" id="wsDot"></span></div>
+        <div class="lcd-wrap">
+          <div class="lcd" id="lcd">READY</div>
+          <div class="lcd-sub" id="lcdSub">—</div>
+        </div>
+        <button class="eject-btn" onclick="goMenu()">◀ BACK</button>
+      </div>
+
+      <div class="synth-layout">
+        
+        <div class="left-column">
+          
+          <!-- MELODIC UI (Piano/Guitar/Strings) -->
+          <div id="melodic-ui">
+            <div class="daw-panel">
+              <div class="panel-header">Sequencer / Transport</div>
+              <div class="seq-controls">
+                
+                <div class="transport">
+                  <button class="transport-btn" id="btnRec" onclick="toggleRecord()">🔴</button>
+                  <button class="transport-btn" id="btnPlay" onclick="togglePlay()">▶</button>
+                </div>
+                
+                <div class="seq-visualizer" id="seqVisualizer">
+                    <!-- Dots injected by JS -->
+                </div>
+
+                <div class="tempo-settings">
+                  <div class="setting-group"><label>BPM</label><input type="number" id="bpmInput" class="daw-input" value="120" onchange="updateSequencer()" /></div>
+                  <div class="setting-group">
+                    <label>TIME</label>
+                    <select id="timeSignature" class="daw-select" onchange="updateSequencer()">
+                        <option value="4/4">4/4</option>
+                        <option value="3/4">3/4</option>
+                        <option value="6/8">6/8</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="daw-panel">
+              <div class="panel-header">Performance Controller</div>
+              <div class="controls-row">
+                <div class="left-panel">
+                  <div class="left-panel-row">
+                    <div class="wheel-group"><div class="pitch-track"><div class="pitch-handle" id="pitchHandle"></div></div><span class="wheel-label">PITCH</span></div>
+                    <div class="wheel-group"><div class="tune-knob" id="tuneKnob"></div><span class="wheel-label">TUNE</span></div>
+                  </div>
+                </div>
+                <div class="keybed-wrap"><div class="keybed" id="keyBed"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DRUM KIT UI (Spatial Layout) -->
+          <div id="drum-ui" class="daw-panel">
+            <div class="panel-header">Virtual Drumset</div>
+            <div class="drum-stage">
+              <div class="drum-pad pad-crash" data-note="49" data-key="r"><span class="pad-label">CRASH</span><span class="pad-key">R</span></div>
+              <div class="drum-pad pad-ride" data-note="51" data-key="y"><span class="pad-label">RIDE</span><span class="pad-key">Y</span></div>
+              <div class="drum-pad pad-hihat" data-note="42" data-key="x"><span class="pad-label">HI-HAT</span><span class="pad-key">X</span></div>
+              <div class="drum-pad pad-htom" data-note="48" data-key="f"><span class="pad-label">HI TOM</span><span class="pad-key">F</span></div>
+              <div class="drum-pad pad-mtom" data-note="45" data-key="g"><span class="pad-label">MID TOM</span><span class="pad-key">G</span></div>
+              <div class="drum-pad pad-snare" data-note="38" data-key="s"><span class="pad-label">SNARE</span><span class="pad-key">S</span></div>
+              <div class="drum-pad pad-ftom" data-note="41" data-key="v"><span class="pad-label">FL TOM</span><span class="pad-key">V</span></div>
+              <div class="drum-pad pad-kick" data-note="36" data-key=" "><span class="pad-label">KICK</span><span class="pad-key">SPACE</span></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="right-column">
+          <div class="daw-panel">
+            <div class="panel-header">Master Effects Rack</div>
+            <div class="effects-grid">
+              <div class="module" id="mod-xypad">
+                <div class="module-label" style="margin-bottom:8px;">Live Expression</div>
+                <canvas id="xyPad" height="120"></canvas>
+                <div class="knob-label" style="margin-top:6px;">X: MOD | Y: EXPR</div>
+              </div>
+
+              <div class="module" id="mod-tremolo">
+                <div class="module-header" onclick="toggleFX('tremolo')">
+                  <div class="led" id="led-tremolo"></div><span class="module-label">Tremolo</span>
+                </div>
+                <div class="knobs-row">
+                  <div class="knob-group"><div class="knob" data-min="0.1" data-max="10" data-val="5" data-param="tremolo_rate"></div><span class="knob-label">RATE</span></div>
+                  <div class="knob-group"><div class="knob" data-min="0" data-max="1" data-val="0.5" data-param="tremolo_depth"></div><span class="knob-label">DEPTH</span></div>
+                </div>
+              </div>
+
+              <div class="module" id="mod-delay">
+                <div class="module-header" onclick="toggleFX('delay')">
+                  <div class="led" id="led-delay"></div><span class="module-label">Delay</span>
+                </div>
+                <div class="knobs-row">
+                  <div class="knob-group"><div class="knob" data-min="0.05" data-max="1" data-val="0.33" data-param="delay_time"></div><span class="knob-label">TIME</span></div>
+                  <div class="knob-group"><div class="knob" data-min="0" data-max="0.9" data-val="0.45" data-param="delay_feedback"></div><span class="knob-label">FDBK</span></div>
+                </div>
+              </div>
+
+              <div class="module" id="mod-reverb">
+                <div class="module-header" onclick="toggleFX('reverb')">
+                  <div class="led" id="led-reverb"></div><span class="module-label">Reverb</span>
+                </div>
+                <div class="knobs-row">
+                  <div class="knob-group"><div class="knob" data-min="0" data-max="1" data-val="0.4" data-param="reverb_mix"></div><span class="knob-label">MIX</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Link to your new JS file -->
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
