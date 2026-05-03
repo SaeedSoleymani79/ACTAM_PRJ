@@ -41,7 +41,7 @@ A specialized UI designed for trigger-based rhythmic performance using a spatial
 ## 📽️ Functional Demonstration
 *(A screen walkthrough demonstrating the real-time response and audio quality of the synthesis engines.)*
 
-> **[https://drive.google.com/file/d/1TW-AYd5N50sEe186BKxS_ww114xbLsMl/view?usp=drive_link]**
+> **[https://youtu.be/Gx5ah5nWZkc]**
 
 ---
 
