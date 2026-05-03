@@ -1,6 +1,6 @@
 # 🎓 University Project: ACTAM PRO Audio Suite
 
-### **Course: Music and Acoustic Engineering
+### **Course: Advanced Coding Tools and Methodologies
 **Developers:** Saeid Soleimani & Hanxian Gao
 
 **Institution:** Politecnico di Milano
