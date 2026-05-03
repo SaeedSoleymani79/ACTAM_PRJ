@@ -23,7 +23,7 @@
 
 ### **Instrument Selection Menu**
 The entry point of the application where users can toggle between different synthesis models.
-![Menu Interface](image_e2d4dd.jpg)
+![Menu Interface](menue.png)
 
 ### **Main Performance Dashboard**
 The primary workspace featuring the melodic keybed, transport controls, and the Master FX rack.
