@@ -6,19 +6,15 @@ class AudioClient {
         this.dot = document.getElementById('wsDot');
         this.connect();
     }
-
     connect() {
         this.ws = new WebSocket(this.url);
-        this.ws.addEventListener('open', () => {
-            if (this.dot) this.dot.className = 'ws-dot ok';
-        });
+        this.ws.addEventListener('open', () => { if (this.dot) this.dot.className = 'ws-dot ok'; });
         this.ws.addEventListener('close', () => {
             if (this.dot) this.dot.className = 'ws-dot err';
             setTimeout(() => this.connect(), 2500);
         });
         this.ws.addEventListener('error', () => {});
     }
-
     send(obj) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(obj));
@@ -34,9 +30,13 @@ class Sequencer {
         this.currentStep = 0;
         this.isPlaying = false;
         this.isRecording = false;
+        
+        // Looper properties
+        this.measureStartTime = 0;
+        this.measureDuration = 0;
+        
         this.initDOM();
     }
-
     initDOM() {
         this.bpmInput = document.getElementById('bpmInput');
         this.timeSignature = document.getElementById('timeSignature');
@@ -45,7 +45,6 @@ class Sequencer {
         this.btnRec = document.getElementById('btnRec');
         this.updateVisualizer();
     }
-
     playClick(isAccent) {
         if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
         const osc = this.audioCtx.createOscillator();
@@ -54,12 +53,10 @@ class Sequencer {
         gain.connect(this.audioCtx.destination);
         osc.type = 'sine';
         osc.frequency.setValueAtTime(isAccent ? 1200 : 800, this.audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.5, this.audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.3, this.audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.1);
-        osc.start();
-        osc.stop(this.audioCtx.currentTime + 0.1);
+        osc.start(); osc.stop(this.audioCtx.currentTime + 0.1);
     }
-
     updateVisualizer() {
         const beats = parseInt(this.timeSignature.value.split('/')[0]);
         this.visualizer.innerHTML = '';
@@ -70,7 +67,6 @@ class Sequencer {
             this.visualizer.appendChild(dot);
         }
     }
-
     togglePlay() {
         this.isPlaying = !this.isPlaying;
         if (this.isPlaying) {
@@ -82,35 +78,33 @@ class Sequencer {
             this.btnPlay.classList.remove('active-play');
             this.btnPlay.textContent = '▶';
             clearTimeout(this.seqInterval);
-            document.querySelectorAll('.beat-dot').forEach(d => {
-                d.classList.remove('active', 'active-accent');
-            });
+            document.querySelectorAll('.beat-dot').forEach(d => d.classList.remove('active', 'active-accent'));
         }
     }
-
     toggleRecord() {
         this.isRecording = !this.isRecording;
         this.btnRec.classList.toggle('active-rec', this.isRecording);
     }
-
     scheduleNextBeat() {
         if (!this.isPlaying) return;
         const bpm = parseInt(this.bpmInput.value) || 120;
         const beats = parseInt(this.timeSignature.value.split('/')[0]);
-
-        document.querySelectorAll('.beat-dot').forEach(d => {
-            d.classList.remove('active', 'active-accent');
-        });
+        const msPerBeat = (60 / bpm) * 1000;
         
-        const activeDot = document.getElementById('beat-' + this.currentStep);
-        if (activeDot) {
-            activeDot.classList.add(this.currentStep === 0 ? 'active-accent' : 'active');
+        // If it's the start of a measure, update the looper timing
+        if (this.currentStep === 0) {
+            this.measureStartTime = performance.now();
+            this.measureDuration = msPerBeat * beats;
+            // Dispatch a custom event so the AppController knows the loop restarted
+            window.dispatchEvent(new Event('measureRestart'));
         }
+
+        document.querySelectorAll('.beat-dot').forEach(d => d.classList.remove('active', 'active-accent'));
+        const activeDot = document.getElementById('beat-' + this.currentStep);
+        if (activeDot) activeDot.classList.add(this.currentStep === 0 ? 'active-accent' : 'active');
 
         this.playClick(this.currentStep === 0);
         this.currentStep = (this.currentStep + 1) % beats;
-        
-        const msPerBeat = (60 / bpm) * 1000;
         this.seqInterval = setTimeout(() => this.scheduleNextBeat(), msPerBeat);
     }
 }
@@ -124,18 +118,123 @@ class AppController {
         this.activeVst = 'piano';
         this.activeSet = new Set();
         this.heldKeys = new Set();
+        this.octaveShift = 0;
+        this.playedNotes = new Map(); 
+        
+        // --- LOOPER STATE ---
+        this.isOverdubbing = false;
+        this.loopEvents = []; // Array to hold { timeOffset, type, id, freq, vst }
+        this.playbackTimer = null;
         
         this.initSplash();
         this.initKeyboard();
         this.initEventListeners();
         
-        // Expose to window for inline HTML onclick handlers
+        // Expose to window
         window.enterInstrument = this.enterInstrument.bind(this);
         window.goMenu = this.goMenu.bind(this);
         window.togglePlay = () => this.sequencer.togglePlay();
-        window.toggleRecord = () => this.sequencer.toggleRecord();
         window.updateSequencer = () => this.sequencer.updateVisualizer();
         window.toggleFX = this.toggleFX.bind(this);
+        window.changeOctave = this.changeOctave.bind(this);
+        window.toggleLoop = this.toggleLoop.bind(this);
+        window.clearLoop = this.clearLoop.bind(this);
+        
+        // --- QUIT LOGIC ---
+        window.quitApp = () => {
+            this.client.send({ type: 'quit' });
+            
+            // Clear the screen and show an offline message
+            document.body.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh;">
+                    <h1 style="color:#ff5555; font-size:48px; letter-spacing:4px;">🔌 SYSTEM OFFLINE</h1>
+                    <p style="color:#888; font-size:18px;">The audio server has been successfully shut down.</p>
+                    <p style="color:#555; font-size:14px; margin-top:20px;">You can now safely close this browser tab.</p>
+                </div>
+            `;
+        };
+        
+        window.toggleRecord = () => {
+            this.sequencer.toggleRecord();
+            const subEl = document.getElementById('lcdSub');
+            const formatSelect = document.getElementById('recFormat');
+            const format = formatSelect ? formatSelect.value : 'wav';
+            
+            if (this.sequencer.isRecording) {
+                this.client.send({ type: 'start_recording', format: format });
+                if (subEl) { subEl.textContent = `• REC ${format.toUpperCase()} •`; subEl.style.color = '#ff4455'; }
+            } else {
+                this.client.send({ type: 'stop_recording' });
+                this.updateDisplay(); 
+                if (subEl) subEl.style.color = ''; 
+            }
+        };
+
+        // Listen for the sequencer restarting the measure to trigger playback
+        window.addEventListener('measureRestart', () => this.playLoop());
+    }
+
+    // --- LOOPER METHODS ---
+    toggleLoop() {
+        // Automatically start the sequencer if it's not running
+        if (!this.sequencer.isPlaying) this.sequencer.togglePlay();
+        
+        this.isOverdubbing = !this.isOverdubbing;
+        document.getElementById('btnLoop').classList.toggle('active-loop', this.isOverdubbing);
+        
+        const subEl = document.getElementById('lcdSub');
+        if (this.isOverdubbing && subEl) {
+            subEl.textContent = '• OVERDUB •';
+            subEl.style.color = '#8899ff';
+        } else {
+            this.updateDisplay();
+            if (subEl) subEl.style.color = '';
+        }
+    }
+
+    clearLoop() {
+        this.loopEvents = [];
+        this.client.send({ type: 'param', name: 'stop_all', val: 0 }); // Optional panic button effect
+        
+        const subEl = document.getElementById('lcdSub');
+        if (subEl) {
+            subEl.textContent = 'LOOP CLEARED';
+            setTimeout(() => this.updateDisplay(), 1000);
+        }
+    }
+
+    recordLoopEvent(type, id, freq) {
+        if (!this.isOverdubbing || !this.sequencer.isPlaying) return;
+        
+        // Calculate exactly when in the measure this note was played
+        const timeOffset = performance.now() - this.sequencer.measureStartTime;
+        
+        this.loopEvents.push({
+            timeOffset: timeOffset,
+            type: type,
+            id: id,
+            freq: freq,
+            vst: this.activeVst // Bind the current instrument to the event!
+        });
+    }
+
+    playLoop() {
+        if (this.loopEvents.length === 0) return;
+        
+        // Schedule all recorded events for this measure
+        this.loopEvents.forEach(ev => {
+            setTimeout(() => {
+                // If user stops sequencer mid-loop, don't play
+                if (!this.sequencer.isPlaying) return;
+                
+                if (ev.type === 'note_on') {
+                    // Send to backend WITH the specific vst name
+                    this.client.send({ type: 'note_on', id: ev.id, freq: ev.freq, vst: ev.vst });
+                } else if (ev.type === 'note_off') {
+                    this.client.send({ type: 'note_off', id: ev.id });
+                }
+            }, ev.timeOffset);
+        });
     }
 
     initSplash() {
@@ -215,7 +314,6 @@ class AppController {
             });
         });
 
-        // Setup Drums
         document.querySelectorAll('.drum-pad').forEach(pad => {
             const note = parseInt(pad.getAttribute('data-note'));
             const key = pad.getAttribute('data-key').toLowerCase();
@@ -225,7 +323,6 @@ class AppController {
     }
 
     initEventListeners() {
-        // --- 1. KEYBOARD MAPPING ---
         document.addEventListener('keydown', e => {
             if (!this.isPlayable) return;
             const key = e.key.toLowerCase();
@@ -247,7 +344,6 @@ class AppController {
             if (this.activeVst !== 'drums' && this.kbdMap[key]) this.noteOff(this.kbdMap[key].midi);
         });
 
-        // --- 2. MOUSE KEYBED MAPPING ---
         const bed = document.getElementById('keyBed');
         bed.addEventListener('mousedown', e => {
             const el = e.target.closest('[data-midi]');
@@ -257,7 +353,6 @@ class AppController {
             if(this.activeVst !== 'drums') this.releaseAllNotes();
         });
 
-        // --- 3. PITCH WHEEL ---
         this.pitchBend = 0;
         this.handle = document.getElementById('pitchHandle');
         document.addEventListener('keydown', e => {
@@ -277,7 +372,6 @@ class AppController {
             }
         });
 
-        // --- 4. TUNE KNOB ---
         this.tuneVal = 0;
         const tuneKnob = document.getElementById('tuneKnob');
         if (tuneKnob) {
@@ -290,7 +384,6 @@ class AppController {
             }, { passive:false });
         }
         
-        // --- 5. FX KNOBS LOGIC ---
         this.fxState = { tremolo:false, delay:false, reverb:false };
         
         document.querySelectorAll('.knob[data-param]').forEach(knob => {
@@ -299,7 +392,7 @@ class AppController {
             let val = parseFloat(knob.dataset.val), startY = 0, startV = val, active = false;
             
             const setAngle = v => knob.style.setProperty('--angle', (((v - min) / (max - min)) * 270 - 135) + 'deg');
-            setAngle(val); // Set initial visual position
+            setAngle(val); 
             
             knob.addEventListener('mousedown', e => { 
                 if (!knob.closest('.module').classList.contains('active')) return; 
@@ -308,7 +401,6 @@ class AppController {
             
             document.addEventListener('mousemove', e => { 
                 if (!active) return; 
-                // Calculate new value based on vertical mouse drag
                 val = Math.max(min, Math.min(max, startV + (startY - e.clientY) / 150 * (max - min))); 
                 setAngle(val); 
                 this.client.send({ type:'param', name: knob.dataset.param, val }); 
@@ -317,7 +409,6 @@ class AppController {
             document.addEventListener('mouseup', () => active = false);
         });
 
-        // --- 6. LIVE EXPRESSION XY PAD ---
         const xyCanvas = document.getElementById('xyPad');
         if (xyCanvas) {
             const xyCtx = xyCanvas.getContext('2d');
@@ -325,12 +416,10 @@ class AppController {
             
             const drawXY = (x, y) => {
                 xyCtx.clearRect(0, 0, xyCanvas.width, xyCanvas.height);
-                // Draw crosshairs
                 xyCtx.strokeStyle = '#2a2a3a'; xyCtx.beginPath(); 
                 xyCtx.moveTo(xyCanvas.width/2, 0); xyCtx.lineTo(xyCanvas.width/2, xyCanvas.height); xyCtx.stroke();
                 xyCtx.beginPath(); 
                 xyCtx.moveTo(0, xyCanvas.height/2); xyCtx.lineTo(xyCanvas.width, xyCanvas.height/2); xyCtx.stroke();
-                // Draw red dot
                 xyCtx.strokeStyle = '#ff4455'; xyCtx.beginPath(); 
                 xyCtx.arc(x * xyCanvas.width, (1 - y) * xyCanvas.height, 6, 0, Math.PI * 2); xyCtx.stroke();
             };
@@ -340,7 +429,7 @@ class AppController {
                 drawXY(0.5, 0.5); 
             };
             window.addEventListener('resize', resizeXY); 
-            setTimeout(resizeXY, 100); // Trigger initial resize safely
+            setTimeout(resizeXY, 100); 
             
             const handleXY = (e) => {
                 if (!isDraggingXY && e.type !== 'mousedown') return; 
@@ -359,29 +448,65 @@ class AppController {
         }
     }
 
+    changeOctave(dir) {
+        if (this.activeVst === 'drums') return;
+        this.octaveShift = Math.max(-2, Math.min(2, this.octaveShift + dir));
+        
+        const display = document.getElementById('octaveDisplay');
+        if (display) {
+            display.textContent = 'OCT: ' + (this.octaveShift > 0 ? '+' : '') + this.octaveShift;
+        }
+    }
+
     midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
-    noteOn(midi) {
-        if (!this.isPlayable || this.activeSet.has(midi)) return;
-        this.activeSet.add(midi);
-        if (this.keyElems[midi]) this.keyElems[midi].classList.add('active');
-        this.client.send({ type: 'note_on', id: midi, freq: this.midiToFreq(midi) });
+    noteOn(baseMidi) {
+        if (!this.isPlayable) return;
+        
+        let actualMidi = this.activeVst === 'drums' ? baseMidi : baseMidi + (this.octaveShift * 12);
+        if (this.activeSet.has(actualMidi)) return;
+        
+        this.activeSet.add(actualMidi);
+        this.playedNotes.set(baseMidi, actualMidi); 
+        if (this.keyElems[baseMidi]) this.keyElems[baseMidi].classList.add('active');
+        
+        const freq = this.midiToFreq(actualMidi);
+        
+        // --- PASS VST TO BACKEND ---
+        this.client.send({ type: 'note_on', id: actualMidi, freq: freq, vst: this.activeVst });
+        
+        // --- RECORD EVENT TO LOOPER ---
+        this.recordLoopEvent('note_on', actualMidi, freq);
+        
         this.updateDisplay();
     }
 
-    noteOff(midi) {
-        if (!this.activeSet.has(midi)) return;
-        this.activeSet.delete(midi);
-        if (this.keyElems[midi]) this.keyElems[midi].classList.remove('active');
-        this.client.send({ type: 'note_off', id: midi });
+    noteOff(baseMidi) {
+        const actualMidi = this.playedNotes.get(baseMidi);
+        if (actualMidi === undefined) return;
+        
+        this.playedNotes.delete(baseMidi);
+        this.activeSet.delete(actualMidi);
+        if (this.keyElems[baseMidi]) this.keyElems[baseMidi].classList.remove('active');
+        
+        this.client.send({ type: 'note_off', id: actualMidi });
+        
+        // --- RECORD EVENT TO LOOPER ---
+        this.recordLoopEvent('note_off', actualMidi, 0);
+        
         this.updateDisplay();
     }
 
-    releaseAllNotes() { [...this.activeSet].forEach(m => this.noteOff(m)); }
+    releaseAllNotes() { 
+        [...this.playedNotes.keys()].forEach(baseMidi => this.noteOff(baseMidi)); 
+    }
 
     hitDrum(midiNote, padElement) {
         if(!this.isPlayable) return;
-        this.client.send({ type: 'note_on', id: midiNote, freq: 0 });
+        
+        this.client.send({ type: 'note_on', id: midiNote, freq: 0, vst: 'drums' });
+        this.recordLoopEvent('note_on', midiNote, 0);
+        
         if (padElement) {
             padElement.classList.add('active');
             setTimeout(() => padElement.classList.remove('active'), 80);
@@ -389,7 +514,7 @@ class AppController {
     }
 
     updateDisplay() {
-        if (this.activeVst === 'drums') return;
+        if (this.activeVst === 'drums' || this.isOverdubbing) return; // Don't override special states
         const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
         let info = { lcd: this.activeVst.toUpperCase(), sub: 'READY', isChord:false };
         
@@ -403,9 +528,9 @@ class AppController {
 
         const lcdEl = document.getElementById('lcd');
         const subEl = document.getElementById('lcdSub');
-        lcdEl.textContent = info.lcd;
-        subEl.textContent = info.sub;
-        lcdEl.className = 'lcd' + (info.isChord ? ' chord' : '');
+        if(lcdEl) lcdEl.textContent = info.lcd;
+        if(subEl) subEl.textContent = info.sub;
+        if(lcdEl) lcdEl.className = 'lcd' + (info.isChord ? ' chord' : '');
     }
 
     goMenu() {
@@ -414,6 +539,7 @@ class AppController {
         document.body.classList.add('locked');
         this.isPlayable = false;
         if(this.sequencer.isPlaying) this.sequencer.togglePlay();
+        if(this.isOverdubbing) this.toggleLoop(); // Turn off overdub if exiting
     }
 
     enterInstrument(vst) {
@@ -427,7 +553,8 @@ class AppController {
             document.getElementById('melodic-ui').style.display = 'none';
             document.getElementById('drum-ui').style.display = 'flex';
             document.getElementById('lcd').textContent = 'DRUMS';
-            document.getElementById('lcdSub').textContent = 'Percussion';
+            
+            if(!this.isOverdubbing) document.getElementById('lcdSub').textContent = 'Percussion';
         } else {
             document.getElementById('melodic-ui').style.display = 'flex';
             document.getElementById('drum-ui').style.display = 'none';
