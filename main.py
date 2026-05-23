@@ -22,13 +22,29 @@ class ACTAMServer:
                     kind = msg.get('type')
                     
                     if kind == 'note_on':
-                        self.engine.note_on(msg['id'], msg['freq'])
+                        # Add msg.get('vst') to pass the instrument name
+                        self.engine.note_on(msg['id'], msg['freq'], msg.get('vst'))
                     elif kind == 'note_off':
                         self.engine.note_off(msg['id'])
                     elif kind == 'switch':
                         self.engine.set_vst(msg.get('vst', 'piano'))
                     elif kind == 'param':
                         self.engine.update_param(msg['name'], float(msg['val']))
+                    elif kind == 'param':
+                        self.engine.update_param(msg['name'], float(msg['val']))
+                    # --- ADD THESE LINES ---
+                    elif kind == 'start_recording':
+                        self.engine.start_recording(msg.get('format', 'wav'))
+                    elif kind == 'stop_recording':
+                        self.engine.stop_recording()
+                    elif kind == 'stop_recording':
+                        self.engine.stop_recording()
+                    
+                    # --- ADD THIS NEW BLOCK ---
+                    elif kind == 'quit':
+                        import os
+                        print("🛑 Received Quit Command from frontend. Shutting down...")
+                        os._exit(0) # Immediately terminates the python server & releases the audio device
                 except Exception:
                     pass
         except websockets.exceptions.ConnectionClosed:
