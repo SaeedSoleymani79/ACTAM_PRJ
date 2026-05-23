@@ -8,7 +8,7 @@
 </head>
 <body class="locked">
 
-  <div id="splash" class="screen">
+<div id="splash" class="screen">
     <canvas id="particles"></canvas>
     <div class="splash-logo"><span>A</span><span>C</span><span>T</span><span>A</span><span>M</span></div>
     <div class="splash-sub">PRO AUDIO SUITE</div>
@@ -41,42 +41,51 @@
           <div class="lcd" id="lcd">READY</div>
           <div class="lcd-sub" id="lcdSub">—</div>
         </div>
-        <button class="eject-btn" onclick="goMenu()">◀ BACK</button>
+        <div style="display: flex; gap: 10px;">
+            <button class="eject-btn" onclick="goMenu()">◀ BACK</button>
+            <button class="eject-btn" onclick="quitApp()" style="color: #ff5555; border-color: #aa3333;">⏻ QUIT</button>
+        </div>
       </div>
 
       <div class="synth-layout">
         
         <div class="left-column">
           
-          <!-- MELODIC UI (Piano/Guitar/Strings) -->
-          <div id="melodic-ui">
-            <div class="daw-panel">
-              <div class="panel-header">Sequencer / Transport</div>
-              <div class="seq-controls">
+          <div class="daw-panel" id="shared-transport">
+            <div class="panel-header">Sequencer / Transport / Looper</div>
+            <div class="seq-controls">
+              
+              <div class="transport">
+                <button class="transport-btn" id="btnRec" onclick="toggleRecord()">🔴</button>
+                <button class="transport-btn" id="btnPlay" onclick="togglePlay()">▶</button>
                 
-                <div class="transport">
-                  <button class="transport-btn" id="btnRec" onclick="toggleRecord()">🔴</button>
-                  <button class="transport-btn" id="btnPlay" onclick="togglePlay()">▶</button>
-                </div>
+                <button class="transport-btn" id="btnLoop" onclick="toggleLoop()" style="font-size: 18px;">🔁</button>
+                <button class="transport-btn" id="btnClearLoop" onclick="clearLoop()" style="font-size: 14px;">🗑️</button>
                 
-                <div class="seq-visualizer" id="seqVisualizer">
-                    <!-- Dots injected by JS -->
-                </div>
-
-                <div class="tempo-settings">
-                  <div class="setting-group"><label>BPM</label><input type="number" id="bpmInput" class="daw-input" value="120" onchange="updateSequencer()" /></div>
-                  <div class="setting-group">
-                    <label>TIME</label>
-                    <select id="timeSignature" class="daw-select" onchange="updateSequencer()">
-                        <option value="4/4">4/4</option>
-                        <option value="3/4">3/4</option>
-                        <option value="6/8">6/8</option>
-                    </select>
+                <select id="recFormat" class="daw-select" style="width: 75px;">
+                    <option value="wav">WAV</option>
+                    <option value="midi">MIDI</option>
+                </select>
+              </div>
+              
+              <div class="seq-visualizer" id="seqVisualizer">
                   </div>
+
+              <div class="tempo-settings">
+                <div class="setting-group"><label>BPM</label><input type="number" id="bpmInput" class="daw-input" value="120" onchange="updateSequencer()" /></div>
+                <div class="setting-group">
+                  <label>TIME</label>
+                  <select id="timeSignature" class="daw-select" onchange="updateSequencer()">
+                      <option value="4/4">4/4</option>
+                      <option value="3/4">3/4</option>
+                      <option value="6/8">6/8</option>
+                  </select>
                 </div>
               </div>
             </div>
+          </div>
 
+          <div id="melodic-ui">
             <div class="daw-panel">
               <div class="panel-header">Performance Controller</div>
               <div class="controls-row">
@@ -85,13 +94,19 @@
                     <div class="wheel-group"><div class="pitch-track"><div class="pitch-handle" id="pitchHandle"></div></div><span class="wheel-label">PITCH</span></div>
                     <div class="wheel-group"><div class="tune-knob" id="tuneKnob"></div><span class="wheel-label">TUNE</span></div>
                   </div>
+                  
+                  <div class="octave-controls" id="octaveControls">
+                    <button class="oct-btn" onclick="changeOctave(-1)">-</button>
+                    <span id="octaveDisplay">OCT: 0</span>
+                    <button class="oct-btn" onclick="changeOctave(1)">+</button>
+                  </div>
+                  
                 </div>
                 <div class="keybed-wrap"><div class="keybed" id="keyBed"></div></div>
               </div>
             </div>
           </div>
 
-          <!-- DRUM KIT UI (Spatial Layout) -->
           <div id="drum-ui" class="daw-panel">
             <div class="panel-header">Virtual Drumset</div>
             <div class="drum-stage">
@@ -154,7 +169,6 @@
     </div>
   </div>
 
-  <!-- Link to your new JS file -->
   <script src="assets/js/app.js"></script>
 </body>
 </html>
