@@ -128,7 +128,8 @@ class AppController {
         
         this.initSplash();
         this.initKeyboard();
-        this.initEventListeners();
+        this.initFretboard(); // <-- ADD THIS LINE
+        this.initEventListeners();        
         
         // Expose to window
         window.enterInstrument = this.enterInstrument.bind(this);
@@ -172,6 +173,76 @@ class AppController {
 
         // Listen for the sequencer restarting the measure to trigger playback
         window.addEventListener('measureRestart', () => this.playLoop());
+    }
+
+    // --- GUITAR UI METHODS ---
+    initFretboard() {
+        const fretboard = document.getElementById('fretboard');
+        if (!fretboard) return;
+        
+        // Standard tuning MIDI notes: E4, B3, G3, D3, A2, E2
+        const strings = [64, 59, 55, 50, 45, 40]; 
+        const numFrets = 15; // Show 15 frets
+        const singleMarkers = [3, 5, 7, 9, 15]; // Frets with single dot
+
+        strings.forEach((openMidi, stringIdx) => {
+            const stringEl = document.createElement('div');
+            stringEl.className = 'guitar-string';
+            // Lower strings get progressively thicker visuals
+            stringEl.style.setProperty('--string-thickness', (1 + (stringIdx * 0.4)) + 'px');
+
+            for (let fret = 0; fret <= numFrets; fret++) {
+                const fretEl = document.createElement('div');
+                fretEl.className = `fret fret-${fret}`;
+                
+                // Add fret markers (inlays)
+                if (fret > 0) {
+                    // Standard single dot markers (placed between D & G strings for aesthetics)
+                    if (singleMarkers.includes(fret) && stringIdx === 2) {
+                        const marker = document.createElement('div');
+                        marker.className = 'fret-marker';
+                        marker.style.top = '100%'; // Center between strings
+                        fretEl.appendChild(marker);
+                    }
+                    // 12th fret double dots
+                    if (fret === 12 && (stringIdx === 1 || stringIdx === 3)) {
+                        const marker = document.createElement('div');
+                        marker.className = 'fret-marker';
+                        marker.style.top = '100%';
+                        fretEl.appendChild(marker);
+                    }
+                }
+
+                // The glowing note indicator
+                const currentMidi = openMidi + fret;
+                const dot = document.createElement('div');
+                dot.className = 'note-dot';
+                dot.dataset.midi = currentMidi;
+                fretEl.appendChild(dot);
+                
+                // Allow users to play the guitar by clicking the fretboard directly!
+                fretEl.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    // Shift the base midi back depending on octave settings so it maps properly
+                    const baseMidiToPlay = currentMidi - (this.octaveShift * 12);
+                    this.noteOn(baseMidiToPlay);
+                    // Temporarily map it into playedNotes so mouseup releases it correctly
+                    this.playedNotes.set('fret_' + currentMidi, currentMidi); 
+                });
+
+                stringEl.appendChild(fretEl);
+            }
+            fretboard.appendChild(stringEl);
+        });
+    }
+
+    updateFretboard(actualMidi, isOn) {
+        // Find ALL positions on the neck where this note exists and highlight them
+        const dots = document.querySelectorAll(`.note-dot[data-midi="${actualMidi}"]`);
+        dots.forEach(dot => {
+            if (isOn) dot.classList.add('active');
+            else dot.classList.remove('active');
+        });
     }
 
     // --- LOOPER METHODS ---
@@ -477,6 +548,7 @@ class AppController {
         
         // --- RECORD EVENT TO LOOPER ---
         this.recordLoopEvent('note_on', actualMidi, freq);
+        if (this.activeVst === 'guitar') this.updateFretboard(actualMidi, true);
         
         this.updateDisplay();
     }
@@ -493,12 +565,23 @@ class AppController {
         
         // --- RECORD EVENT TO LOOPER ---
         this.recordLoopEvent('note_off', actualMidi, 0);
-        
+        if (this.activeVst === 'guitar') this.updateFretboard(actualMidi, false);
         this.updateDisplay();
     }
 
     releaseAllNotes() { 
-        [...this.playedNotes.keys()].forEach(baseMidi => this.noteOff(baseMidi)); 
+        [...this.playedNotes.keys()].forEach(baseMidi => {
+            // Support releasing clicked fretboard notes
+            if (typeof baseMidi === 'string' && baseMidi.startsWith('fret_')) {
+                const actualMidi = this.playedNotes.get(baseMidi);
+                this.playedNotes.delete(baseMidi);
+                this.activeSet.delete(actualMidi);
+                this.client.send({ type: 'note_off', id: actualMidi });
+                if (this.activeVst === 'guitar') this.updateFretboard(actualMidi, false);
+            } else {
+                this.noteOff(baseMidi);
+            }
+        }); 
     }
 
     hitDrum(midiNote, padElement) {
@@ -558,7 +641,14 @@ class AppController {
         } else {
             document.getElementById('melodic-ui').style.display = 'flex';
             document.getElementById('drum-ui').style.display = 'none';
+            
+            const guitarUI = document.getElementById('guitar-ui');
+            if (guitarUI) {
+                guitarUI.style.display = (vst === 'guitar') ? 'flex' : 'none';
+            }
+            
             this.updateDisplay();
+            
         }
     }
 
