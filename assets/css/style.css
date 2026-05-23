@@ -217,3 +217,89 @@ body.locked .synth-frame { pointer-events: none; opacity: .15; filter: blur(2px)
   border-color: #8899ff;
   animation: pulse-loop 1.5s ease-in-out infinite;
 }
+/* --- GUITAR FRETBOARD UI --- */
+#guitar-ui {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.fretboard-wrap {
+  width: 100%;
+  max-width: 900px;
+  background: linear-gradient(90deg, #18110b 0%, #2a1f16 100%);
+  border: 2px solid #110d08;
+  border-radius: 6px;
+  padding: 4px 0;
+  box-shadow: inset 0 10px 20px rgba(0,0,0,0.5), 0 5px 15px rgba(0,0,0,0.3);
+}
+.fretboard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  position: relative;
+}
+.guitar-string {
+  display: flex;
+  position: relative;
+  height: 24px;
+  align-items: center;
+  /* Faint shadow behind string */
+  box-shadow: inset 0 -4px 6px rgba(0,0,0,0.2); 
+}
+/* The actual physical strings */
+.guitar-string::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: var(--string-thickness, 2px);
+  background: linear-gradient(180deg, #ccc 0%, #777 100%);
+  transform: translateY(-50%);
+  box-shadow: 0 2px 3px rgba(0,0,0,0.8);
+  z-index: 1;
+  pointer-events: none;
+}
+.fret {
+  flex: 1;
+  border-right: 2px solid #8a8a8a;
+  box-shadow: 1px 0 2px rgba(0,0,0,0.8);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+/* The open string / nut */
+.fret.fret-0 {
+  flex: 0.3;
+  border-right: 6px solid #d4d4d4;
+  background: #0a0a0a;
+}
+/* Hover effect for playability */
+.fret:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.fret-marker {
+  position: absolute;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #e8e8e8, #999);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+}
+.note-dot {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent), inset 0 -2px 4px rgba(0,0,0,0.5);
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.05s, transform 0.05s;
+  pointer-events: none;
+}
+.note-dot.active {
+  opacity: 1;
+  transform: scale(1.2);
+}
